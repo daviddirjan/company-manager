@@ -3,6 +3,8 @@ import { Sidebar } from './components/layout/Sidebar';
 import { TopBar } from './components/layout/TopBar';
 import { Dashboard } from './pages/Dashboard';
 import { Invoices } from './pages/Invoices';
+import { Clients } from './pages/Clients';
+import { Chat } from './pages/Chat';
 import { Settings } from './pages/Settings';
 import { useInvoiceStore } from './store/invoiceStore';
 
@@ -17,6 +19,8 @@ export default function App() {
         <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {page === 'dashboard' && <Dashboard />}
           {page === 'invoices' && <Invoices />}
+          {page === 'clients' && <Clients />}
+          {page === 'chat' && <Chat />}
           {page === 'settings' && <Settings />}
         </main>
       </div>

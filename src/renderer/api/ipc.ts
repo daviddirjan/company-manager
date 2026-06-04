@@ -1,4 +1,4 @@
-import type { Invoice, InvoiceFilters, DashboardStats } from '../types';
+import type { Invoice, InvoiceFilters, DashboardStats, ClientWithStats } from '../types';
 
 declare global {
   interface Window {
@@ -29,7 +29,8 @@ export const api = {
   },
   import: {
     start: (folderPath: string) => ipc.invoke('import:start', folderPath) as Promise<{ imported: number; skipped: number; errors: number }>,
-    onProgress: (cb: (p: { current: number; total: number; filename: string; status: string }) => void) => {
+    sync: (folderPath: string) => ipc.invoke('import:sync', folderPath) as Promise<{ imported: number; skipped: number; errors: number }>,
+    onProgress: (cb: (p: { current: number; total: number; filename: string; status: string; error?: string }) => void) => {
       ipc.on('import:progress', cb as never);
     },
   },
@@ -43,8 +44,39 @@ export const api = {
     get: () => ipc.invoke('settings:get') as Promise<Record<string, string>>,
     save: (data: Record<string, string>) => ipc.invoke('settings:save', data) as Promise<boolean>,
   },
+  clients: {
+    list: () => ipc.invoke('clients:list') as Promise<ClientWithStats[]>,
+    update: (id: number, data: { phone?: string | null; email?: string | null }) =>
+      ipc.invoke('clients:update', id, data) as Promise<boolean>,
+  },
   dialog: {
     openFile: () => ipc.invoke('dialog:openFile') as Promise<string | null>,
     openFolder: () => ipc.invoke('dialog:openFolder') as Promise<string | null>,
+  },
+  chat: {
+    send: (sessionId: number | null, messages: { role: string; content: string }[]) =>
+      ipc.invoke('chat:send', sessionId, messages) as Promise<number>,
+    check: () => ipc.invoke('chat:check') as Promise<{ ok: boolean; error?: string }>,
+    models: () => ipc.invoke('chat:models') as Promise<string[]>,
+    sessions: {
+      list: () => ipc.invoke('chat:sessions:list') as Promise<{ id: number; title: string; updated_at: string }[]>,
+      delete: (id: number) => ipc.invoke('chat:sessions:delete', id) as Promise<boolean>,
+      rename: (id: number, title: string) => ipc.invoke('chat:sessions:rename', id, title) as Promise<boolean>,
+    },
+    messages: {
+      get: (sessionId: number) => ipc.invoke('chat:messages:get', sessionId) as Promise<{ id: number; role: string; content: string }[]>,
+    },
+    onStream: (cb: (p: { chunk: string; done: boolean }) => void) => {
+      ipc.on('chat:stream', cb as never);
+    },
+    offStream: (cb: (p: { chunk: string; done: boolean }) => void) => {
+      ipc.off('chat:stream', cb as never);
+    },
+    onStatus: (cb: (p: { ok: boolean; error?: string }) => void) => {
+      ipc.on('chat:status', cb as never);
+    },
+    offStatus: (cb: (p: { ok: boolean; error?: string }) => void) => {
+      ipc.off('chat:status', cb as never);
+    },
   },
 };

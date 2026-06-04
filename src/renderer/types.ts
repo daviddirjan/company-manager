@@ -43,4 +43,19 @@ export interface DashboardStats {
   count: number;
 }
 
-export type Page = 'dashboard' | 'invoices' | 'settings';
+export interface ClientWithStats {
+  id: number;
+  name: string;
+  vat_code: string | null;
+  country: string | null;
+  phone: string | null;
+  email: string | null;
+  invoice_count: number;
+  total_eur: number;
+  total_ron: number;
+  total_chf: number;
+  total_pln: number;
+  total_usd: number;
+}
+
+export type Page = 'dashboard' | 'invoices' | 'clients' | 'chat' | 'settings';

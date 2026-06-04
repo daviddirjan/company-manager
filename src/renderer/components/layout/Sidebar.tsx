@@ -1,11 +1,13 @@
 import React from 'react';
-import { LayoutDashboard, FileText, Settings } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, MessageSquare, Settings } from 'lucide-react';
 import { useInvoiceStore } from '../../store/invoiceStore';
 import type { Page } from '../../types';
 
 const NAV: Array<{ id: Page; label: string; Icon: React.FC<{ size?: number; className?: string }> }> = [
   { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { id: 'invoices', label: 'Invoices', Icon: FileText },
+  { id: 'clients', label: 'Clients', Icon: Users },
+  { id: 'chat', label: 'Chat', Icon: MessageSquare },
   { id: 'settings', label: 'Settings', Icon: Settings },
 ];
 

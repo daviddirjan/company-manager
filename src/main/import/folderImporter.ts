@@ -3,6 +3,7 @@ import path from 'node:path';
 import { extractFromPdf } from './pdfExtractor';
 import { upsertInvoice } from '../db/queries/invoices';
 import { upsertClient } from '../db/queries/clients';
+import { dbGet } from '../db/database';
 
 export interface ImportProgress {
   current: number;
@@ -14,7 +15,8 @@ export interface ImportProgress {
 
 export async function importFromFolder(
   folderPath: string,
-  onProgress: (p: ImportProgress) => void
+  onProgress: (p: ImportProgress) => void,
+  options: { onlyNew?: boolean } = {}
 ): Promise<{ imported: number; skipped: number; errors: number }> {
   const files = fs.readdirSync(folderPath)
     .filter(f => /^AX\d+\.pdf$/i.test(f) || /^CHITANTA_AX\d+\.pdf$/i.test(f))
@@ -27,13 +29,18 @@ export async function importFromFolder(
     const filename = files[i];
     const filePath = path.join(folderPath, filename);
 
-    try {
-      const extracted = await extractFromPdf(filePath);
-      if (!extracted) {
+    // Sync mode: skip files already in the database
+    if (options.onlyNew) {
+      const exists = dbGet<{ id: number }>('SELECT id FROM invoices WHERE pdf_filename = ?', [filename]);
+      if (exists) {
         onProgress({ current: i + 1, total, filename, status: 'skip' });
         skipped++;
         continue;
       }
+    }
+
+    try {
+      const extracted = await extractFromPdf(filePath);
 
       const clientId = upsertClient(
         extracted.client_name,
@@ -51,8 +58,8 @@ export async function importFromFolder(
         client_vat_code: extracted.client_vat_code,
         total_amount: extracted.total_amount,
         currency: extracted.currency,
-        payment_status: 'unpaid',
-        paid_amount: 0,
+        payment_status: 'paid',
+        paid_amount: extracted.total_amount,
         language: extracted.language,
         sb_total_amount: null,
         sb_paid_amount: null,

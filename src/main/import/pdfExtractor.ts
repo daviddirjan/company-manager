@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require('pdf-parse');
+const { PDFParse } = require('pdf-parse');
 
 export interface ExtractedInvoice {
   series_name: string;
@@ -37,19 +37,26 @@ function detectLanguage(text: string): string {
 }
 
 function detectCurrency(text: string): string {
-  if (/\bCHF\b/.test(text)) return 'CHF';
-  if (/\bPLN\b/.test(text)) return 'PLN';
-  if (/\bEUR\b/.test(text)) return 'EUR';
-  if (/\bRON\b/.test(text)) return 'RON';
-  if (/\bUSD\b/.test(text)) return 'USD';
+  // Most reliable: currency appears as a standalone line in the product table column header
+  const standalone = text.match(/^(EUR|CHF|PLN|USD|RON)$/m);
+  if (standalone) return standalone[1];
+  // Fallback: word search after stripping IBAN lines (both EUR and RON IBANs appear in every invoice)
+  const cleaned = text.replace(/IBAN[^\n]*/gi, '');
+  if (/\bCHF\b/.test(cleaned)) return 'CHF';
+  if (/\bPLN\b/.test(cleaned)) return 'PLN';
+  if (/\bEUR\b/.test(cleaned)) return 'EUR';
+  if (/\bRON\b|\bLei\b/.test(cleaned)) return 'RON';
+  if (/\bUSD\b/.test(cleaned)) return 'USD';
   return 'RON';
 }
 
 function extractInvoiceNumber(text: string): { series: string; number: string } | null {
   const patterns = [
-    /[Ss]eri[ae][sa]?\s+([A-Z]+)\s+Nr\.?\s*(\d+)/,   // Romanian
-    /[Ss]eri[ae][sa]?\s+([A-Z]+)\s+nro\s+(\d+)/,      // Spanish
-    /[Ss]eri[ae][sa]?\s+([A-Z]+)\s+no\.?\s*(\d+)/,    // English/French
+    /[Ss]eri[ae][sa]?:?\s+([A-Z]+)\s+[Nn]r\.?:?\s*(\d+)/,   // Romanian (with/without colons)
+    /[Ss]eri[ae][sa]?:?\s+([A-Z]+)\s+nro\.?:?\s*(\d+)/,      // Spanish
+    /[Ss]eri[ae][sa]?:?\s+([A-Z]+)\s+[Nn]o\.?:?\s*(\d+)/,    // English/French
+    /\bInvoice\s+[Nn]o\.?:?\s*([A-Z]+)[- ]?(\d+)/,           // "Invoice No: AX-123"
+    /\b([A-Z]{2,6})\s*[-/]\s*(\d{3,})\b/,                     // "AX-0123" or "AX/0123"
   ];
   for (const p of patterns) {
     const m = text.match(p);
@@ -160,43 +167,46 @@ function detectClientCountry(text: string): string | null {
 }
 
 export async function extractFromPdf(filePath: string): Promise<ExtractedInvoice | null> {
-  try {
-    const buffer = fs.readFileSync(filePath);
-    const data = await pdfParse(buffer, { max: 1 });
-    const text: string = data.text;
+  const buffer = fs.readFileSync(filePath);
+  const parser = new PDFParse({ data: buffer });
+  const data = await parser.getText();
+  const text: string = data.text;
 
-    const isChitanta = /CHITAN[TȚ]A/i.test(text.slice(0, 200));
-    const lang = detectLanguage(text);
-    const currency = detectCurrency(text);
-    const numInfo = extractInvoiceNumber(text);
+  const isChitanta = /CHITAN[TȚ]A/i.test(text.slice(0, 200));
+  const lang = detectLanguage(text);
+  const currency = detectCurrency(text);
 
-    if (!numInfo) return null;
-
-    const { issue, due } = extractDates(text);
-    if (!issue) return null;
-
-    const clientName = extractClientName(text, lang);
-    const clientVat = extractClientVat(text, lang);
-    const clientCountry = detectClientCountry(text);
-    const total = extractTotalAmount(text);
-    const filename = path.basename(filePath);
-
-    return {
-      series_name: numInfo.series,
-      number: numInfo.number,
-      issue_date: issue,
-      due_date: due,
-      client_name: clientName,
-      client_vat_code: clientVat,
-      client_country: clientCountry,
-      total_amount: total,
-      currency,
-      language: lang,
-      pdf_filename: filename,
-      pdf_path: filePath,
-      is_chitanta: isChitanta,
-    };
-  } catch {
-    return null;
+  let numInfo = extractInvoiceNumber(text);
+  if (!numInfo) {
+    // Fallback: derive series/number from filename (e.g. AX123.pdf → AX / 123)
+    const fnMatch = path.basename(filePath, '.pdf').match(/^([A-Za-z]+)(\d+)$/);
+    if (fnMatch) numInfo = { series: fnMatch[1].toUpperCase(), number: fnMatch[2].padStart(3, '0') };
   }
+
+  if (!numInfo) throw new Error(`Invoice number not found in PDF text (lang: ${lang})`);
+
+  const { issue, due } = extractDates(text);
+  if (!issue) throw new Error(`Issue date not found in PDF text`);
+
+  const clientName = extractClientName(text, lang);
+  const clientVat = extractClientVat(text, lang);
+  const clientCountry = detectClientCountry(text);
+  const total = extractTotalAmount(text);
+  const filename = path.basename(filePath);
+
+  return {
+    series_name: numInfo.series,
+    number: numInfo.number,
+    issue_date: issue,
+    due_date: due,
+    client_name: clientName,
+    client_vat_code: clientVat,
+    client_country: clientCountry,
+    total_amount: total,
+    currency,
+    language: lang,
+    pdf_filename: filename,
+    pdf_path: filePath,
+    is_chitanta: isChitanta,
+  };
 }

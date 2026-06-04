@@ -75,4 +75,32 @@ export function runMigrations(db: SqlDatabase): void {
 
     db.run(`INSERT OR IGNORE INTO schema_version(version) VALUES(1)`);
   }
+
+  if (current < 2) {
+    db.run(`ALTER TABLE clients ADD COLUMN phone TEXT`);
+    db.run(`ALTER TABLE clients ADD COLUMN email TEXT`);
+    db.run(`INSERT OR IGNORE INTO schema_version(version) VALUES(2)`);
+  }
+
+  if (current < 3) {
+    db.run(`
+      CREATE TABLE IF NOT EXISTS chat_sessions (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        title      TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `);
+    db.run(`
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+        role       TEXT NOT NULL CHECK(role IN ('user','assistant')),
+        content    TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id)`);
+    db.run(`INSERT OR IGNORE INTO schema_version(version) VALUES(3)`);
+  }
 }

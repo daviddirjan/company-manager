@@ -17,6 +17,8 @@ const store = new Store({
     companyCif:        { type: 'string', default: '' },
     seriesName:        { type: 'string', default: 'AX' },
     pdfFolderPath:     { type: 'string', default: '' },
+    ollamaUrl:         { type: 'string', default: 'http://localhost:11434' },
+    ollamaModel:       { type: 'string', default: 'qwen3:0.6b' },
   },
 });
 
