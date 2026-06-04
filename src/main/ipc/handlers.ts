@@ -175,29 +175,32 @@ export function registerHandlers(mainWindow: BrowserWindow): void {
       currency: string; payment_status: string; issue_date: string;
     }>(
       `SELECT number, client_name, total_amount, currency, payment_status, issue_date
-       FROM invoices ORDER BY issue_date DESC, CAST(number AS INTEGER) DESC LIMIT 30`
+       FROM invoices ORDER BY issue_date DESC, CAST(number AS INTEGER) DESC`
     );
-    const clients = listClientsWithStats().slice(0, 20);
+    const clients = listClientsWithStats();
 
     const today = new Date().toISOString().split('T')[0];
+    const totalInvoices = stats.reduce((s, r) => s + r.count, 0);
 
     let contextBlock = `You are a helpful business assistant built into Axiontic Manager.\n`;
     contextBlock += `Today is ${today}. Answer concisely. Use numbers from the data below — do not make them up.\n\n`;
     contextBlock += `=== BUSINESS DATA ===\n`;
+    contextBlock += `TOTAL invoices: ${totalInvoices} | TOTAL clients: ${clients.length}\n\n`;
 
+    contextBlock += `Per currency:\n`;
     for (const s of stats) {
       contextBlock += `${s.currency}: ${s.count} invoice${s.count !== 1 ? 's' : ''} | invoiced ${s.total_invoiced.toFixed(2)} | collected ${s.total_paid.toFixed(2)} | outstanding ${s.total_unpaid.toFixed(2)}\n`;
     }
 
     if (recentInvoices.length > 0) {
-      contextBlock += `\nRecent invoices (last ${recentInvoices.length}):\n`;
+      contextBlock += `\nAll invoices (${recentInvoices.length}):\n`;
       for (const inv of recentInvoices) {
         contextBlock += `${inv.number} | ${inv.client_name} | ${inv.total_amount.toFixed(2)} ${inv.currency} | ${inv.payment_status} | ${inv.issue_date}\n`;
       }
     }
 
     if (clients.length > 0) {
-      contextBlock += `\nClients (${clients.length} shown):\n`;
+      contextBlock += `\nAll clients (${clients.length}):\n`;
       for (const c of clients) {
         const totals = [
           c.total_eur > 0 ? `EUR ${c.total_eur.toFixed(2)}` : '',
