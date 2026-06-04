@@ -14,6 +14,7 @@ interface InvoiceStore {
   selectedInvoice: Invoice | null;
   chartData: ChartData | null;
   chartPeriod: ChartPeriod;
+  exchangeRates: Record<string, number>;
 
   setPage: (p: Page) => void;
   setFilters: (f: InvoiceFilters) => void;
@@ -21,6 +22,7 @@ interface InvoiceStore {
   loadInvoices: () => Promise<void>;
   loadDashboardStats: () => Promise<void>;
   loadChartData: (period: ChartPeriod) => Promise<void>;
+  loadExchangeRates: () => Promise<void>;
   setSyncStatus: (s: 'idle' | 'running' | 'error', msg?: string) => void;
   refreshInvoice: (id: number) => Promise<void>;
 }
@@ -37,6 +39,7 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
   selectedInvoice: null,
   chartData: null,
   chartPeriod: 'year',
+  exchangeRates: { RON: 1 },
 
   setPage: (page) => set({ page }),
   setFilters: (filters) => {
@@ -65,6 +68,11 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
     set({ chartPeriod: period });
     const data = await api.dashboard.chart(period);
     set({ chartData: data });
+  },
+
+  loadExchangeRates: async () => {
+    const rates = await api.dashboard.rates();
+    set({ exchangeRates: rates });
   },
 
   refreshInvoice: async (id) => {

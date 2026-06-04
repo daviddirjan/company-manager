@@ -27,6 +27,7 @@ export const api = {
   dashboard: {
     stats: () => ipc.invoke('dashboard:stats') as Promise<{ stats: DashboardStats[]; clients: number }>,
     chart: (period: ChartPeriod) => ipc.invoke('dashboard:chart', period) as Promise<ChartData>,
+    rates: () => ipc.invoke('dashboard:rates') as Promise<Record<string, number>>,
   },
   import: {
     start: (folderPath: string) => ipc.invoke('import:start', folderPath) as Promise<{ imported: number; skipped: number; errors: number }>,

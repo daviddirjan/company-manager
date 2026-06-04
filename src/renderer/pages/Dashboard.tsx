@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Legend,
+  ResponsiveContainer,
 } from 'recharts';
 import { useInvoiceStore } from '../store/invoiceStore';
 import type { ChartPeriod } from '../types';
+
+const CURRENCY_ORDER = ['RON', 'EUR', 'PLN', 'CHF'];
 
 const CURRENCY_COLORS: Record<string, string> = {
   RON: '#3b82f6',
@@ -31,26 +33,46 @@ const PERIOD_LABELS: Record<ChartPeriod, string> = {
 };
 
 export function Dashboard() {
-  const { dashboardStats, clientCount, loadDashboardStats, chartData, chartPeriod, loadChartData } = useInvoiceStore();
+  const {
+    dashboardStats, clientCount, loadDashboardStats,
+    chartData, chartPeriod, loadChartData,
+    exchangeRates, loadExchangeRates,
+  } = useInvoiceStore();
 
   useEffect(() => {
     loadDashboardStats();
+    loadExchangeRates();
     loadChartData('year');
   }, []);
 
   const totalInvoices = dashboardStats.reduce((s, d) => s + d.count, 0);
 
+  const sortedStats = useMemo(() => {
+    return [...dashboardStats].sort((a, b) => {
+      const ia = CURRENCY_ORDER.indexOf(a.currency);
+      const ib = CURRENCY_ORDER.indexOf(b.currency);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+  }, [dashboardStats]);
+
   const chartPoints = useMemo(() => {
     if (!chartData) return [];
-    const map = new Map<string, Record<string, number>>();
+    const map = new Map<string, number>();
     for (const row of chartData.rows) {
-      if (!map.has(row.period)) map.set(row.period, { period: row.period } as Record<string, number>);
-      map.get(row.period)![row.currency] = row.amount;
+      const rate = exchangeRates[row.currency] ?? 1;
+      map.set(row.period, (map.get(row.period) ?? 0) + row.amount * rate);
     }
-    return Array.from(map.values()).sort((a, b) => String(a.period).localeCompare(String(b.period)));
-  }, [chartData]);
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([period, total]) => ({ period, total: Math.round(total) }));
+  }, [chartData, exchangeRates]);
 
-  const currencies = chartData?.currencies ?? [];
+  const rateInfo = useMemo(() => {
+    return ['EUR', 'PLN', 'CHF', 'USD']
+      .filter(c => exchangeRates[c])
+      .map(c => `1 ${c} = ${exchangeRates[c].toFixed(4)} RON`)
+      .join(' · ');
+  }, [exchangeRates]);
 
   const handlePeriod = (p: ChartPeriod) => loadChartData(p);
 
@@ -62,9 +84,9 @@ export function Dashboard() {
       </p>
 
       {/* Compact summary grid */}
-      {dashboardStats.length > 0 && (
+      {sortedStats.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 10, marginBottom: 28 }}>
-          {dashboardStats.map(stat => {
+          {sortedStats.map(stat => {
             const color = CURRENCY_COLORS[stat.currency] ?? '#64748b';
             const pct = stat.total_invoiced > 0 ? Math.round((stat.total_paid / stat.total_invoiced) * 100) : 0;
             return (
@@ -99,17 +121,17 @@ export function Dashboard() {
         </div>
       )}
 
-      {dashboardStats.length === 0 && (
+      {sortedStats.length === 0 && (
         <div style={{ textAlign: 'center', padding: 60, color: '#94a3b8' }}>
           <p>No invoices yet. Go to Settings to import your PDF folder.</p>
         </div>
       )}
 
       {/* Revenue chart */}
-      {dashboardStats.length > 0 && (
+      {sortedStats.length > 0 && (
         <div style={{ background: '#fff', borderRadius: 12, padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>Revenue</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>Revenue (RON)</div>
             <div style={{ display: 'flex', gap: 6 }}>
               {(['month', 'year', 'all'] as ChartPeriod[]).map(p => (
                 <button
@@ -133,6 +155,12 @@ export function Dashboard() {
             </div>
           </div>
 
+          {rateInfo && (
+            <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 14 }}>
+              BNR · {rateInfo}
+            </div>
+          )}
+
           {chartPoints.length === 0 ? (
             <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 13 }}>
               No data for this period
@@ -155,19 +183,10 @@ export function Dashboard() {
                   width={48}
                 />
                 <Tooltip
-                  formatter={(value: number, name: string) => [fmt(value, name), name]}
+                  formatter={(value: number) => [fmt(value, 'RON'), 'Total']}
                   contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}
                 />
-                {currencies.length > 1 && <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 12 }} />}
-                {currencies.map(cur => (
-                  <Bar
-                    key={cur}
-                    dataKey={cur}
-                    fill={CURRENCY_COLORS[cur] ?? '#64748b'}
-                    radius={[3, 3, 0, 0]}
-                    maxBarSize={40}
-                  />
-                ))}
+                <Bar dataKey="total" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={40} />
               </BarChart>
             </ResponsiveContainer>
           )}
