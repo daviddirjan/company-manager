@@ -109,6 +109,38 @@ export function deleteInvoice(id: number): void {
   dbRun('DELETE FROM invoices WHERE id = ?', [id]);
 }
 
+export interface ChartRow {
+  period: string;
+  currency: string;
+  amount: number;
+}
+
+export function getChartData(period: 'month' | 'year' | 'all'): { rows: ChartRow[]; currencies: string[] } {
+  const now = new Date();
+  let dateFrom: string;
+  let periodFmt: string;
+
+  if (period === 'month') {
+    dateFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    periodFmt = '%d';
+  } else if (period === 'year') {
+    dateFrom = `${now.getFullYear()}-01-01`;
+    periodFmt = '%Y-%m';
+  } else {
+    dateFrom = '2021-09-01';
+    periodFmt = '%Y-%m';
+  }
+
+  const rows = dbAll<ChartRow>(
+    `SELECT strftime('${periodFmt}', issue_date) as period, currency, SUM(total_amount) as amount
+     FROM invoices WHERE issue_date >= ? GROUP BY period, currency ORDER BY period`,
+    [dateFrom]
+  );
+
+  const currencies = [...new Set(rows.map(r => r.currency))].sort();
+  return { rows, currencies };
+}
+
 export function getDashboardStats(): DashboardStats[] {
   return dbAll<DashboardStats>(`
     SELECT

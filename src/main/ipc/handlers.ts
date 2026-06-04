@@ -1,7 +1,7 @@
 import { ipcMain, dialog, shell, BrowserWindow } from 'electron';
 import path from 'node:path';
 import { IPC } from './channels';
-import { listInvoices, getInvoice, upsertInvoice, updateInvoice, deleteInvoice, getDashboardStats } from '../db/queries/invoices';
+import { listInvoices, getInvoice, upsertInvoice, updateInvoice, deleteInvoice, getDashboardStats, getChartData } from '../db/queries/invoices';
 import { listClients, listClientsWithStats, updateClient } from '../db/queries/clients';
 import { dbAll } from '../db/database';
 import { importFromFolder } from '../import/folderImporter';
@@ -50,6 +50,8 @@ export function registerHandlers(mainWindow: BrowserWindow): void {
     stats: getDashboardStats(),
     clients: listClients().length,
   }));
+
+  ipcMain.handle(IPC.DASHBOARD_CHART, (_e, period: 'month' | 'year' | 'all') => getChartData(period));
 
   ipcMain.handle(IPC.IMPORT_START, async (_e, folderPath: string) => {
     const result = await importFromFolder(folderPath, (progress) => {

@@ -1,4 +1,4 @@
-import type { Invoice, InvoiceFilters, DashboardStats, ClientWithStats } from '../types';
+import type { Invoice, InvoiceFilters, DashboardStats, ClientWithStats, ChartData, ChartPeriod } from '../types';
 
 declare global {
   interface Window {
@@ -26,6 +26,7 @@ export const api = {
   },
   dashboard: {
     stats: () => ipc.invoke('dashboard:stats') as Promise<{ stats: DashboardStats[]; clients: number }>,
+    chart: (period: ChartPeriod) => ipc.invoke('dashboard:chart', period) as Promise<ChartData>,
   },
   import: {
     start: (folderPath: string) => ipc.invoke('import:start', folderPath) as Promise<{ imported: number; skipped: number; errors: number }>,

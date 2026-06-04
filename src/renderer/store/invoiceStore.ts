@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Invoice, InvoiceFilters, DashboardStats, Page } from '../types';
+import type { Invoice, InvoiceFilters, DashboardStats, ChartData, ChartPeriod, Page } from '../types';
 import { api } from '../api/ipc';
 
 interface InvoiceStore {
@@ -12,12 +12,15 @@ interface InvoiceStore {
   dashboardStats: DashboardStats[];
   clientCount: number;
   selectedInvoice: Invoice | null;
+  chartData: ChartData | null;
+  chartPeriod: ChartPeriod;
 
   setPage: (p: Page) => void;
   setFilters: (f: InvoiceFilters) => void;
   setSelectedInvoice: (inv: Invoice | null) => void;
   loadInvoices: () => Promise<void>;
   loadDashboardStats: () => Promise<void>;
+  loadChartData: (period: ChartPeriod) => Promise<void>;
   setSyncStatus: (s: 'idle' | 'running' | 'error', msg?: string) => void;
   refreshInvoice: (id: number) => Promise<void>;
 }
@@ -32,6 +35,8 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
   dashboardStats: [],
   clientCount: 0,
   selectedInvoice: null,
+  chartData: null,
+  chartPeriod: 'year',
 
   setPage: (page) => set({ page }),
   setFilters: (filters) => {
@@ -54,6 +59,12 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
   loadDashboardStats: async () => {
     const data = await api.dashboard.stats();
     set({ dashboardStats: data.stats, clientCount: data.clients });
+  },
+
+  loadChartData: async (period) => {
+    set({ chartPeriod: period });
+    const data = await api.dashboard.chart(period);
+    set({ chartData: data });
   },
 
   refreshInvoice: async (id) => {

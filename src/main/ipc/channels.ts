@@ -7,6 +7,7 @@ export const IPC = {
   INVOICE_LINK_PDF:       'invoice:linkPdf',
   INVOICE_OPEN_PDF:       'invoice:openPdf',
   DASHBOARD_STATS:        'dashboard:stats',
+  DASHBOARD_CHART:        'dashboard:chart',
   IMPORT_START:           'import:start',
   IMPORT_SYNC:            'import:sync',
   IMPORT_PROGRESS:        'import:progress',

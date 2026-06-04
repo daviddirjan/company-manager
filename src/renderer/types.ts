@@ -58,4 +58,17 @@ export interface ClientWithStats {
   total_usd: number;
 }
 
+export interface ChartRow {
+  period: string;
+  currency: string;
+  amount: number;
+}
+
+export interface ChartData {
+  rows: ChartRow[];
+  currencies: string[];
+}
+
+export type ChartPeriod = 'month' | 'year' | 'all';
+
 export type Page = 'dashboard' | 'invoices' | 'clients' | 'chat' | 'settings';
